@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 import { loadData, saveData, generateId } from './storage';
 import { generateDashboardHtml } from './exportHtml';
@@ -57,7 +57,18 @@ function useDashboards() {
     });
   }
 
-  return { dashboards: data.dashboards, createDashboard, renameDashboard, deleteDashboard, addResource, deleteResource };
+  function renameResource(dashboardId, resourceId, title) {
+    update({
+      ...data,
+      dashboards: data.dashboards.map((d) =>
+        d.id === dashboardId
+          ? { ...d, resources: d.resources.map((r) => r.id === resourceId ? { ...r, title } : r) }
+          : d
+      ),
+    });
+  }
+
+  return { dashboards: data.dashboards, createDashboard, renameDashboard, deleteDashboard, addResource, deleteResource, renameResource };
 }
 
 /* ─────────────── CreateDashboardModal ─────────────── */
@@ -290,8 +301,31 @@ function AddResourceModal({ onClose, onAdd }) {
 }
 
 /* ─────────────── ResourceCard ─────────────── */
-function ResourceCard({ resource, onDelete, onCopy, isCopied }) {
+function ResourceCard({ resource, onDelete, onCopy, onRename, isCopied }) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const inputRef = React.useRef(null);
+
+  function startEdit(e) {
+    e.stopPropagation();
+    setEditValue(resource.title);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  }
+
+  function commitEdit() {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== resource.title) onRename(trimmed);
+    setEditing(false);
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') commitEdit();
+    if (e.key === 'Escape') setEditing(false);
+  }
+
   function handleClick(e) {
+    if (editing) return;
     if (e.target.closest('.resource-card-actions')) return;
     if (resource.type === 'link') {
       window.open(resource.url, '_blank', 'noopener');
@@ -311,7 +345,20 @@ function ResourceCard({ resource, onDelete, onCopy, isCopied }) {
       onClick={handleClick}
     >
       <div className="resource-card-type">{resource.type === 'link' ? '🔗' : '📄'}</div>
-      <div className="resource-card-title">{resource.title}</div>
+      {editing ? (
+        <input
+          ref={inputRef}
+          className="resource-card-title-input"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={handleKeyDown}
+          onClick={(e) => e.stopPropagation()}
+          autoFocus
+        />
+      ) : (
+        <div className="resource-card-title">{resource.title}</div>
+      )}
       {resource.type === 'link' && (
         <div className="resource-card-subtitle">{resource.url}</div>
       )}
@@ -319,6 +366,13 @@ function ResourceCard({ resource, onDelete, onCopy, isCopied }) {
         <div className="resource-card-subtitle">{resource.filename}</div>
       )}
       <div className="resource-card-actions">
+        <button
+          className="resource-card-btn resource-card-edit"
+          onClick={startEdit}
+          title="제목 수정"
+        >
+          ✏️
+        </button>
         <button
           className="resource-card-btn resource-card-copy"
           onClick={(e) => { e.stopPropagation(); onCopy(); }}
@@ -339,7 +393,7 @@ function ResourceCard({ resource, onDelete, onCopy, isCopied }) {
 }
 
 /* ─────────────── DashboardDetail ─────────────── */
-function DashboardDetail({ dashboard, onBack, onAddResource, onDeleteResource, onRename, clipboard, onCopy, onPaste }) {
+function DashboardDetail({ dashboard, onBack, onAddResource, onDeleteResource, onRename, onRenameResource, clipboard, onCopy, onPaste }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
 
@@ -392,6 +446,7 @@ function DashboardDetail({ dashboard, onBack, onAddResource, onDeleteResource, o
               resource={r}
               onDelete={() => onDeleteResource(r.id)}
               onCopy={() => onCopy(r)}
+              onRename={(title) => onRenameResource(r.id, title)}
               isCopied={clipboard?.id === r.id}
             />
           ))}
@@ -497,7 +552,7 @@ function DashboardList({ dashboards, onSelect, onCreate, onDelete, onRename }) {
 
 /* ─────────────── App ─────────────── */
 export default function App() {
-  const { dashboards, createDashboard, renameDashboard, deleteDashboard, addResource, deleteResource } = useDashboards();
+  const { dashboards, createDashboard, renameDashboard, deleteDashboard, addResource, deleteResource, renameResource } = useDashboards();
   const [selectedId, setSelectedId] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
   const [clipboard, setClipboard] = useState(null); // copied resource slot
@@ -526,6 +581,7 @@ export default function App() {
           onAddResource={(r) => addResource(selected.id, r)}
           onDeleteResource={(rid) => deleteResource(selected.id, rid)}
           onRename={(title) => renameDashboard(selected.id, title)}
+          onRenameResource={(rid, title) => renameResource(selected.id, rid, title)}
           clipboard={clipboard}
           onCopy={(r) => setClipboard(r)}
           onPaste={() => {

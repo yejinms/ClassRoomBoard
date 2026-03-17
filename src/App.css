@@ -327,6 +327,17 @@
   font-family: inherit;
 }
 
+.resource-card-edit {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #718096;
+  padding: 3px 6px;
+}
+
+.resource-card-edit:hover {
+  background: #edf2f7;
+}
+
 .resource-card-copy {
   background: white;
   border: 1px solid #bee3f8;
@@ -335,6 +346,20 @@
 
 .resource-card-copy:hover {
   background: #ebf8ff;
+}
+
+.resource-card-title-input {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d3748;
+  border: 1px solid #4f46e5;
+  border-radius: 5px;
+  padding: 3px 6px;
+  outline: none;
+  width: 100%;
+  font-family: inherit;
+  box-shadow: 0 0 0 2px rgba(79,70,229,0.15);
+  flex: 1;
 }
 
 .resource-card-delete {

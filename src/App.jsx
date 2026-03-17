@@ -132,6 +132,19 @@ function RenameModal({ dashboard, onClose, onRename }) {
 }
 
 /* ─────────────── AddResourceModal ─────────────── */
+function extractTitleFromUrl(rawUrl) {
+  try {
+    const u = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : 'https://' + rawUrl);
+    const host = u.hostname.replace(/^www\./, '');
+    const segments = u.pathname.split('/').filter(Boolean);
+    if (segments.length >= 2) return `${host} / ${segments.slice(0, 2).join(' / ')}`;
+    if (segments.length === 1) return `${host} / ${segments[0]}`;
+    return host;
+  } catch {
+    return '';
+  }
+}
+
 function AddResourceModal({ onClose, onAdd }) {
   const [tab, setTab] = useState('link');
   const [title, setTitle] = useState('');
@@ -139,6 +152,24 @@ function AddResourceModal({ onClose, onAdd }) {
   const [file, setFile] = useState(null);
   const [fileData, setFileData] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [titleAutoFilled, setTitleAutoFilled] = useState(false);
+
+  function handleUrlChange(val) {
+    setUrl(val);
+    // Auto-fill title if it's empty or was previously auto-filled
+    if (!title.trim() || titleAutoFilled) {
+      const auto = extractTitleFromUrl(val);
+      if (auto) {
+        setTitle(auto);
+        setTitleAutoFilled(true);
+      }
+    }
+  }
+
+  function handleTitleChange(val) {
+    setTitle(val);
+    setTitleAutoFilled(false); // user is manually editing
+  }
 
   function handleFileChange(f) {
     if (!f || f.type !== 'application/pdf') return;
@@ -146,7 +177,10 @@ function AddResourceModal({ onClose, onAdd }) {
     const reader = new FileReader();
     reader.onload = (e) => setFileData(e.target.result);
     reader.readAsDataURL(f);
-    if (!title) setTitle(f.name.replace(/\.pdf$/i, ''));
+    if (!title.trim() || titleAutoFilled) {
+      setTitle(f.name.replace(/\.pdf$/i, ''));
+      setTitleAutoFilled(true);
+    }
   }
 
   function handleDrop(e) {
@@ -187,17 +221,6 @@ function AddResourceModal({ onClose, onAdd }) {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">자료 제목</label>
-            <input
-              className="form-input"
-              placeholder="자료를 설명하는 제목"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              autoFocus
-            />
-          </div>
-
           {tab === 'link' ? (
             <div className="form-group">
               <label className="form-label">URL</label>
@@ -205,7 +228,8 @@ function AddResourceModal({ onClose, onAdd }) {
                 className="form-input"
                 placeholder="https://..."
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => handleUrlChange(e.target.value)}
+                autoFocus
               />
             </div>
           ) : (
@@ -217,7 +241,7 @@ function AddResourceModal({ onClose, onAdd }) {
                   <button
                     type="button"
                     style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#e53e3e', fontSize: 16 }}
-                    onClick={() => { setFile(null); setFileData(null); }}
+                    onClick={() => { setFile(null); setFileData(null); setTitle(''); setTitleAutoFilled(false); }}
                   >✕</button>
                 </div>
               ) : (
@@ -241,6 +265,19 @@ function AddResourceModal({ onClose, onAdd }) {
               />
             </div>
           )}
+
+          <div className="form-group">
+            <label className="form-label">
+              자료 제목
+              {titleAutoFilled && <span className="auto-label">자동 생성됨</span>}
+            </label>
+            <input
+              className="form-input"
+              placeholder={tab === 'link' ? 'URL 입력 시 자동 생성' : '파일 선택 시 자동 생성'}
+              value={title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+            />
+          </div>
 
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>취소</button>

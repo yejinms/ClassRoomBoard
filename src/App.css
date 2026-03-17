@@ -5,6 +5,15 @@
   padding: 24px 20px;
 }
 
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  font-size: 15px;
+  color: #a0aec0;
+}
+
 /* Header */
 .header {
   display: flex;

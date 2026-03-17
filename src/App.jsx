@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import { loadData, saveData, generateId } from './storage';
 import { generateDashboardHtml } from './exportHtml';
 
 /* ─────────────── helpers ─────────────── */
 function useDashboards() {
-  const [data, setData] = useState(() => loadData());
+  const [data, setData] = useState(null); // null = 초기 로딩 중
+
+  useEffect(() => {
+    loadData().then(setData);
+  }, []);
 
   function update(newData) {
     setData(newData);
@@ -68,7 +72,7 @@ function useDashboards() {
     });
   }
 
-  return { dashboards: data.dashboards, createDashboard, renameDashboard, deleteDashboard, addResource, deleteResource, renameResource };
+  return { loading: data === null, dashboards: data?.dashboards ?? [], createDashboard, renameDashboard, deleteDashboard, addResource, deleteResource, renameResource };
 }
 
 /* ─────────────── CreateDashboardModal ─────────────── */
@@ -552,12 +556,20 @@ function DashboardList({ dashboards, onSelect, onCreate, onDelete, onRename }) {
 
 /* ─────────────── App ─────────────── */
 export default function App() {
-  const { dashboards, createDashboard, renameDashboard, deleteDashboard, addResource, deleteResource, renameResource } = useDashboards();
+  const { loading, dashboards, createDashboard, renameDashboard, deleteDashboard, addResource, deleteResource, renameResource } = useDashboards();
   const [selectedId, setSelectedId] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
   const [clipboard, setClipboard] = useState(null); // copied resource slot
 
   const selected = dashboards.find((d) => d.id === selectedId);
+
+  if (loading) {
+    return (
+      <div className="app">
+        <div className="loading-screen">불러오는 중...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">

@@ -1,25 +1,26 @@
 /**
  * Generates a self-contained HTML file for a dashboard.
- * PDFs are embedded as base64 and opened via Blob URL (works in file:// context).
- * Links are regular anchors.
+ * - Links: regular <a> tags
+ * - Images: embedded inline as <img src="data:...">
+ * - PDFs / other files: opened via Blob URL (works in file:// context)
  */
 export function generateDashboardHtml(dashboard) {
   const resources = dashboard.resources || [];
 
-  // Collect PDF data separately to avoid huge inline onclick attributes
-  const pdfResources = resources.filter((r) => r.type === 'pdf');
-  const pdfDataScript = pdfResources.length > 0
+  // Blob-opened files (PDF + any non-image binary)
+  const blobResources = resources.filter((r) => r.type !== 'link' && r.type !== 'image');
+  const blobScript = blobResources.length > 0
     ? `<script>
-var PDF_DATA = {
-${pdfResources.map((r) => `  "${r.id}": "${r.data}"`).join(',\n')}
+var FILE_DATA = {
+${blobResources.map((r) => `  "${r.id}": { data: "${r.data}", mime: "${r.mimeType || 'application/pdf'}" }`).join(',\n')}
 };
-function openPdf(id) {
-  var dataUrl = PDF_DATA[id];
-  var base64 = dataUrl.split(',')[1];
+function openFile(id) {
+  var f = FILE_DATA[id];
+  var base64 = f.data.split(',')[1];
   var binary = atob(base64);
   var bytes = new Uint8Array(binary.length);
   for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
-  var blob = new Blob([bytes], { type: 'application/pdf' });
+  var blob = new Blob([bytes], { type: f.mime });
   window.open(URL.createObjectURL(blob), '_blank');
 }
 <\/script>`
@@ -33,15 +34,22 @@ function openPdf(id) {
           <div class="card-title">${escapeHtml(r.title)}</div>
           <div class="card-sub">${escapeHtml(r.url)}</div>
         </a>`;
-    } else {
-      // PDF - use Blob URL via JS so it works when opened from file://
+    }
+    if (r.type === 'image') {
       return `
-        <div class="card pdf-card" onclick="openPdf('${r.id}')" style="cursor:pointer">
-          <div class="card-icon">📄</div>
+        <a class="card image-card" href="${r.data}" target="_blank">
+          <img class="card-thumbnail" src="${r.data}" alt="${escapeAttr(r.title)}" />
+          <div class="card-title">${escapeHtml(r.title)}</div>
+          <div class="card-sub">${escapeHtml(r.filename || '')}</div>
+        </a>`;
+    }
+    // PDF or other blob file
+    return `
+        <div class="card pdf-card" onclick="openFile('${r.id}')" style="cursor:pointer">
+          <div class="card-icon">${r.type === 'pdf' ? '📄' : '📎'}</div>
           <div class="card-title">${escapeHtml(r.title)}</div>
           <div class="card-sub">${escapeHtml(r.filename || '')}</div>
         </div>`;
-    }
   }).join('\n');
 
   const date = new Date(dashboard.createdAt).toLocaleDateString('ko-KR', {
@@ -88,9 +96,17 @@ function openPdf(id) {
       box-shadow: 0 4px 16px rgba(0,0,0,0.1);
       transform: translateY(-2px);
     }
-    .link-card:hover { border-color: #bee3f8; background: #ebf8ff; }
-    .pdf-card:hover  { border-color: #fed7d7; background: #fff5f5; }
+    .link-card:hover  { border-color: #bee3f8; background: #ebf8ff; }
+    .pdf-card:hover   { border-color: #fed7d7; background: #fff5f5; }
+    .image-card:hover { border-color: #c6f6d5; background: #f0fff4; }
     .card-icon { font-size: 26px; }
+    .card-thumbnail {
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 6px;
+      background: #f0f4f8;
+    }
     .card-title { font-size: 14px; font-weight: 600; color: #2d3748; flex: 1; line-height: 1.4; }
     .card-sub { font-size: 11px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .empty { text-align: center; padding: 60px; color: #a0aec0; font-size: 16px; }
@@ -108,7 +124,7 @@ function openPdf(id) {
         : cards}
     </div>
   </div>
-  ${pdfDataScript}
+  ${blobScript}
 </body>
 </html>`;
 }

@@ -146,6 +146,31 @@ function RenameModal({ dashboard, onClose, onRename }) {
   );
 }
 
+/* ─────────────── file type helpers ─────────────── */
+const ACCEPTED_TYPES = 'application/pdf,image/png,image/jpeg,image/gif,image/webp,image/svg+xml';
+
+function getFileCategory(mimeType) {
+  if (mimeType === 'application/pdf') return 'pdf';
+  if (mimeType.startsWith('image/')) return 'image';
+  return 'file';
+}
+
+function fileIcon(type) {
+  if (type === 'link') return '🔗';
+  if (type === 'pdf') return '📄';
+  if (type === 'image') return '🖼️';
+  return '📎';
+}
+
+function openFileBlob(data, mimeType) {
+  const base64 = data.split(',')[1];
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: mimeType });
+  window.open(URL.createObjectURL(blob), '_blank');
+}
+
 /* ─────────────── AddResourceModal ─────────────── */
 function extractTitleFromUrl(rawUrl) {
   try {
@@ -187,13 +212,15 @@ function AddResourceModal({ onClose, onAdd }) {
   }
 
   function handleFileChange(f) {
-    if (!f || f.type !== 'application/pdf') return;
+    if (!f) return;
+    const category = getFileCategory(f.type);
+    if (category === 'file') return; // 지원하지 않는 형식
     setFile(f);
     const reader = new FileReader();
     reader.onload = (e) => setFileData(e.target.result);
     reader.readAsDataURL(f);
     if (!title.trim() || titleAutoFilled) {
-      setTitle(f.name.replace(/\.pdf$/i, ''));
+      setTitle(f.name.replace(/\.[^.]+$/, ''));
       setTitleAutoFilled(true);
     }
   }
@@ -214,7 +241,8 @@ function AddResourceModal({ onClose, onAdd }) {
       onAdd({ type: 'link', title: title.trim(), url: finalUrl });
     } else {
       if (!file || !fileData) return;
-      onAdd({ type: 'pdf', title: title.trim() || file.name, filename: file.name, data: fileData });
+      const type = getFileCategory(file.type);
+      onAdd({ type, mimeType: file.type, title: title.trim() || file.name, filename: file.name, data: fileData });
     }
     onClose();
   }
@@ -231,7 +259,7 @@ function AddResourceModal({ onClose, onAdd }) {
             🔗 링크
           </button>
           <button type="button" className={`tab-btn ${tab === 'pdf' ? 'active' : ''}`} onClick={() => setTab('pdf')}>
-            📄 PDF 파일
+            📎 파일
           </button>
         </div>
 
@@ -249,10 +277,10 @@ function AddResourceModal({ onClose, onAdd }) {
             </div>
           ) : (
             <div className="form-group">
-              <label className="form-label">PDF 파일</label>
+              <label className="form-label">파일</label>
               {file ? (
                 <div className="file-selected">
-                  📄 {file.name}
+                  {fileIcon(getFileCategory(file.type))} {file.name}
                   <button
                     type="button"
                     style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#e53e3e', fontSize: 16 }}
@@ -265,16 +293,17 @@ function AddResourceModal({ onClose, onAdd }) {
                   onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={handleDrop}
-                  onClick={() => document.getElementById('pdf-input').click()}
+                  onClick={() => document.getElementById('file-input').click()}
                 >
                   <div className="drop-icon">📂</div>
-                  <p>PDF 파일을 드래그하거나 클릭해서 선택</p>
+                  <p>PDF · PNG · JPEG · GIF · WEBP</p>
+                  <p style={{ marginTop: 4, fontSize: 12, color: '#cbd5e0' }}>드래그하거나 클릭해서 선택</p>
                 </div>
               )}
               <input
-                id="pdf-input"
+                id="file-input"
                 type="file"
-                accept="application/pdf"
+                accept={ACCEPTED_TYPES}
                 style={{ display: 'none' }}
                 onChange={(e) => handleFileChange(e.target.files[0])}
               />
@@ -334,21 +363,24 @@ function ResourceCard({ resource, onDelete, onCopy, onRename, isCopied }) {
     if (resource.type === 'link') {
       window.open(resource.url, '_blank', 'noopener');
     } else {
-      const base64 = resource.data.split(',')[1];
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      window.open(URL.createObjectURL(blob), '_blank');
+      openFileBlob(resource.data, resource.mimeType || 'application/pdf');
     }
   }
 
+  const cardClass = resource.type === 'link' ? 'link-card'
+    : resource.type === 'image' ? 'image-card'
+    : 'pdf-card';
+
   return (
     <div
-      className={`resource-card ${resource.type === 'link' ? 'link-card' : 'pdf-card'}${isCopied ? ' is-copied' : ''}`}
+      className={`resource-card ${cardClass}${isCopied ? ' is-copied' : ''}`}
       onClick={handleClick}
     >
-      <div className="resource-card-type">{resource.type === 'link' ? '🔗' : '📄'}</div>
+      {resource.type === 'image' ? (
+        <img className="resource-card-thumbnail" src={resource.data} alt={resource.title} />
+      ) : (
+        <div className="resource-card-type">{fileIcon(resource.type)}</div>
+      )}
       {editing ? (
         <input
           ref={inputRef}

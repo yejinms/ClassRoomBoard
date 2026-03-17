@@ -647,6 +647,90 @@
   gap: 8px;
 }
 
+/* Folder card (dashboard list) */
+.dashboard-card.folder-card {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.dashboard-card.folder-card:hover {
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+
+/* Resource folder card */
+.resource-card.resource-folder-card {
+  background: #fffbeb;
+  border-color: #fde68a;
+  cursor: pointer;
+}
+.resource-card.resource-folder-card:hover {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  transform: translateY(-2px);
+}
+
+/* Move button on resource card */
+.resource-card-move {
+  background: white;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+.resource-card-move:hover {
+  background: #fffbeb;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.breadcrumb-btn {
+  background: none;
+  border: none;
+  color: #4f46e5;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  text-decoration: underline;
+}
+.breadcrumb-btn:hover { color: #3730a3; }
+.breadcrumb-sep { color: #cbd5e0; }
+.breadcrumb-current { color: #4a5568; font-weight: 500; }
+
+/* Folder pick list in MoveToFolderModal */
+.folder-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.folder-pick-item {
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  font-size: 14px;
+  color: #2d3748;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.folder-pick-item:hover {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+}
+.folder-pick-item.active {
+  background: #ede9fe;
+  border-color: #4f46e5;
+  color: #4f46e5;
+  font-weight: 500;
+}
+
 /* Empty state */
 .empty-state {
   text-align: center;

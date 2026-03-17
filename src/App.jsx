@@ -170,7 +170,7 @@ function AddResourceModal({ onClose, onAdd }) {
     onClose();
   }
 
-  const canSubmit = tab === 'link' ? title.trim() && url.trim() : !!file;
+  const canSubmit = tab === 'link' ? title.trim() && url.trim() : !!file && !!fileData;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -253,9 +253,9 @@ function AddResourceModal({ onClose, onAdd }) {
 }
 
 /* ─────────────── ResourceCard ─────────────── */
-function ResourceCard({ resource, onDelete }) {
+function ResourceCard({ resource, onDelete, onCopy, isCopied }) {
   function handleClick(e) {
-    if (e.target.closest('.resource-card-delete')) return;
+    if (e.target.closest('.resource-card-actions')) return;
     if (resource.type === 'link') {
       window.open(resource.url, '_blank', 'noopener');
     } else {
@@ -270,7 +270,7 @@ function ResourceCard({ resource, onDelete }) {
 
   return (
     <div
-      className={`resource-card ${resource.type === 'link' ? 'link-card' : 'pdf-card'}`}
+      className={`resource-card ${resource.type === 'link' ? 'link-card' : 'pdf-card'}${isCopied ? ' is-copied' : ''}`}
       onClick={handleClick}
     >
       <div className="resource-card-type">{resource.type === 'link' ? '🔗' : '📄'}</div>
@@ -281,18 +281,28 @@ function ResourceCard({ resource, onDelete }) {
       {resource.type === 'pdf' && resource.filename && (
         <div className="resource-card-subtitle">{resource.filename}</div>
       )}
-      <button
-        className="resource-card-delete"
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-      >
-        삭제
-      </button>
+      <div className="resource-card-actions">
+        <button
+          className="resource-card-btn resource-card-copy"
+          onClick={(e) => { e.stopPropagation(); onCopy(); }}
+          title="복사"
+        >
+          {isCopied ? '복사됨' : '복사'}
+        </button>
+        <button
+          className="resource-card-btn resource-card-delete"
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          title="삭제"
+        >
+          삭제
+        </button>
+      </div>
     </div>
   );
 }
 
 /* ─────────────── DashboardDetail ─────────────── */
-function DashboardDetail({ dashboard, onBack, onAddResource, onDeleteResource, onRename }) {
+function DashboardDetail({ dashboard, onBack, onAddResource, onDeleteResource, onRename, clipboard, onCopy, onPaste }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
 
@@ -328,7 +338,7 @@ function DashboardDetail({ dashboard, onBack, onAddResource, onDeleteResource, o
         </div>
       </div>
 
-      {dashboard.resources.length === 0 ? (
+      {dashboard.resources.length === 0 && !clipboard ? (
         <div className="empty-state">
           <div className="empty-icon">📭</div>
           <h3>아직 자료가 없어요</h3>
@@ -344,8 +354,17 @@ function DashboardDetail({ dashboard, onBack, onAddResource, onDeleteResource, o
               key={r.id}
               resource={r}
               onDelete={() => onDeleteResource(r.id)}
+              onCopy={() => onCopy(r)}
+              isCopied={clipboard?.id === r.id}
             />
           ))}
+          {clipboard && (
+            <button className="resource-card resource-card-paste" onClick={onPaste}>
+              <div className="paste-icon">{clipboard.type === 'link' ? '🔗' : '📄'}</div>
+              <div className="paste-label">붙여넣기</div>
+              <div className="paste-title">{clipboard.title}</div>
+            </button>
+          )}
           <button className="resource-card resource-card-new" onClick={() => setShowAddModal(true)}>
             <div className="new-icon">+</div>
             <span>자료 추가</span>
@@ -444,6 +463,7 @@ export default function App() {
   const { dashboards, createDashboard, renameDashboard, deleteDashboard, addResource, deleteResource } = useDashboards();
   const [selectedId, setSelectedId] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
+  const [clipboard, setClipboard] = useState(null); // copied resource slot
 
   const selected = dashboards.find((d) => d.id === selectedId);
 
@@ -454,6 +474,12 @@ export default function App() {
           <span className="icon">🏫</span>
           <h1>ClassRoom Board</h1>
         </button>
+        {clipboard && (
+          <div className="clipboard-badge">
+            <span>{clipboard.type === 'link' ? '🔗' : '📄'} <strong>{clipboard.title}</strong> 복사됨</span>
+            <button onClick={() => setClipboard(null)}>✕</button>
+          </div>
+        )}
       </header>
 
       {selected ? (
@@ -463,6 +489,12 @@ export default function App() {
           onAddResource={(r) => addResource(selected.id, r)}
           onDeleteResource={(rid) => deleteResource(selected.id, rid)}
           onRename={(title) => renameDashboard(selected.id, title)}
+          clipboard={clipboard}
+          onCopy={(r) => setClipboard(r)}
+          onPaste={() => {
+            const { id: _id, ...rest } = clipboard;
+            addResource(selected.id, rest);
+          }}
         />
       ) : (
         <DashboardList

@@ -1,9 +1,29 @@
 /**
  * Generates a self-contained HTML file for a dashboard.
- * PDFs are embedded as base64 data URIs; links are regular anchors.
+ * PDFs are embedded as base64 and opened via Blob URL (works in file:// context).
+ * Links are regular anchors.
  */
 export function generateDashboardHtml(dashboard) {
   const resources = dashboard.resources || [];
+
+  // Collect PDF data separately to avoid huge inline onclick attributes
+  const pdfResources = resources.filter((r) => r.type === 'pdf');
+  const pdfDataScript = pdfResources.length > 0
+    ? `<script>
+var PDF_DATA = {
+${pdfResources.map((r) => `  "${r.id}": "${r.data}"`).join(',\n')}
+};
+function openPdf(id) {
+  var dataUrl = PDF_DATA[id];
+  var base64 = dataUrl.split(',')[1];
+  var binary = atob(base64);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
+  var blob = new Blob([bytes], { type: 'application/pdf' });
+  window.open(URL.createObjectURL(blob), '_blank');
+}
+<\/script>`
+    : '';
 
   const cards = resources.map((r) => {
     if (r.type === 'link') {
@@ -14,13 +34,13 @@ export function generateDashboardHtml(dashboard) {
           <div class="card-sub">${escapeHtml(r.url)}</div>
         </a>`;
     } else {
-      // PDF - embed as data URI so it works offline
+      // PDF - use Blob URL via JS so it works when opened from file://
       return `
-        <a class="card pdf-card" href="${r.data}" target="_blank">
+        <div class="card pdf-card" onclick="openPdf('${r.id}')" style="cursor:pointer">
           <div class="card-icon">📄</div>
           <div class="card-title">${escapeHtml(r.title)}</div>
           <div class="card-sub">${escapeHtml(r.filename || '')}</div>
-        </a>`;
+        </div>`;
     }
   }).join('\n');
 
@@ -88,6 +108,7 @@ export function generateDashboardHtml(dashboard) {
         : cards}
     </div>
   </div>
+  ${pdfDataScript}
 </body>
 </html>`;
 }
